@@ -40,10 +40,13 @@ class Evolution(Frame):
         world.grid(row=1, column=0, columnspan=2, rowspan=5, padx=5, sticky=E+W+N+S)
         
         sbtn = Button(self, text="Stop")
-        sbtn.grid(row=2, column=3, pady = 5)
+        sbtn.grid(row=1, column=3, pady = 5, sticky=E)
 
-        bbox = Text(self, height=20, width=30)
-        bbox.grid(row=4, column = 3, rowspan=2, pady=5)
+        bbox = Text(self, height=11, width=36)
+        bbox.grid(row=3, column = 3, sticky=E+W+N+S)
+
+        bbox1 = Text(self, height=11, width=36)
+        bbox1.grid(row=4, column=3, sticky=E+W+N+S)
 
         cbtn = Button(self, text="Close", command=self.parent.destroy)
         cbtn.grid(row=6, column=3, pady=5)
@@ -52,10 +55,10 @@ class Evolution(Frame):
         hbtn.grid(row=6, column=0, padx=5)
 
         timelbl = Text(self, height=1, width=10)
-        timelbl.grid(row=3, column=3, pady=5 )
+        timelbl.grid(row=2, column=3, pady=5 )
         
-        abtn = Button(self, text="Start", command=Beings(world, 5, 100, sbtn, bbox, timelbl).live)
-        abtn.grid(row=1, column=3, pady=5)
+        abtn = Button(self, text="Start", command=Beings(world, 10, 100, sbtn, bbox, bbox1, timelbl).live)
+        abtn.grid(row=1, column=3, pady=5, sticky=W)
 
     def close(self):
         self.parent.destroy

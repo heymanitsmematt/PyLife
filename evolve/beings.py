@@ -1,6 +1,8 @@
 import sklearn as skl
 import numpy as np
 from time import sleep
+import time
+from datetime import datetime
 from threading import Thread, Event
 #for debug
 import pdb
@@ -10,14 +12,17 @@ from timer import Timer
 directionMap = {i:x for i,x in enumerate("N S E W".split())}
 
 class Beings:
-    def __init__(self, world, predCount, preyCount, sbtn, bbox, timelbl):
+    def __init__(self, world, predCount, preyCount, sbtn, bbox, bbox1, timelbl):
         '''args world (eg Canvas object), predCount and preyCount, initiates life process when live is called in pain loop
         '''
         self.world = world
         self.world.state = {'state' : 'inactive'}
 
-        self.predators = [Predator() for i in range(predCount)]
-        self.prey = [Prey() for i in range(preyCount)]
+        self.predators = [Predator(bbox1) for i in range(predCount)]
+        self.prey = [Prey(bbox1) for i in range(preyCount)]
+
+        self.deadPredators = list()
+        self.deadPrey = list()
 
         self.beings = list(self.predators + self.prey)
         self.tags = list()
@@ -25,6 +30,7 @@ class Beings:
         #stop button and being box for binding after live() is called 
         self.sbtn = sbtn
         self.bbox = bbox
+        self.bbox1 = bbox1
         self.timelbl = timelbl
 
 
@@ -38,7 +44,7 @@ class Beings:
                 being.tag = self.world.create_rectangle(being.genX, being.genY, being.genX+10, being.genY-10, fill=being.color)
             else:
                 being.tag = self.world.create_oval(being.genX, being.genY, being.genX+10, being.genY-10, fill=being.color)
-
+        
         
         #start session thread
         self.stopThread = False
@@ -47,6 +53,7 @@ class Beings:
 
         #bind the Thread object _Thread__stop() method to the stop button
         self.sbtn.config(command=self.threadStop)
+        
 
     def threadStop(self):
         self.stopThread = True
@@ -57,6 +64,9 @@ class Beings:
         #instantiate timer and pass in timerlbl
         self.timer = Timer(self.timelbl)
         
+        #bind showInfo to each being
+        lambda x: self.world.tag_bind(x.tag,"<ButtonPress-1>", x.showInfo), self.beings
+
         while self.stopThread == False:
             #move each being
             map(lambda x: self.move(x), self.beings)
@@ -64,7 +74,11 @@ class Beings:
             #predators hunt!
             for pred in self.predators:
                 pred.hunt(self.prey, self.world)
-                pred.kill(self.world, self.prey, self.beings) 
+                pred.kill(self.world, self.prey, self.deadPrey, self.beings) 
+            
+            #age the beings
+            for being in self.beings:
+                being.age(self)
 
             #update the clock
             self.timer.updateClock()
@@ -73,8 +87,17 @@ class Beings:
             self.bbox.delete(1.0, END)
             bboxstr = "Predators \n"
             for pred in self.predators:
-                bboxstr += "tag-%s; vR-%s; kR-%s; kC-%s; \n" % (pred.tag, pred.visionRange, pred.killRange, pred.killCount,)
+                bboxstr += "tag-%s; vR-%s; kR-%s; kC-%s; lfe-%s\n" % (pred.tag, pred.visionRange, pred.killRange, pred.killCount, pred.curLife)
+            bboxstr += "#pred-%s  #prey-%s #beings=%s\nDead Predators:\n" % (len(self.predators), len(self.prey), len(self.beings))
+            for pred in self.deadPredators:
+                bboxstr += "tag-%s; vR-%s, kR-%s; kC-%s\n" % (pred.tag, pred.visionRange, pred.killRange, pred.killCount)    
             self.bbox.insert("1.0", bboxstr)
+
+            #check to ensure game is not over
+            if len(self.predators) == 0 or len(self.prey) == 0:
+                self.threadStop()
+
+            #sleep to avoid stack overflow
             sleep(.1)
             
     def move(self, being):
@@ -127,24 +150,27 @@ class Beings:
     
 
 class Predator(object):
-    def __init__(self):
+    def __init__(self, bbox1):
         '''
         Predator Being: speed, stamina, lifespan, state, direction attributes.
                         hunt, reproduce methods.
         '''
         self.type = 'predator'
         self.state = 'idle'
+        self.bbox1 = bbox1
         self.generation = 1
+        self.birthTime = time.strftime("%H:%M:%S")
         self.speed = np.random.randint(1,11)
         self.persistence = np.random.randint(21,51)
         self.curPersistence = self.persistence
         self.stamina = np.random.randint(1, 11)
-        self.lifespan = np.random.randint(100, 501)
+        self.lifespan = np.random.randint(30, 101)
         self.state = {'state':'idle'}
+        self.curLife = self.lifespan
         self.direction = np.random.randint(4)
-        self.visionRange = np.random.randint(25, 51)
+        self.visionRange = np.random.randint(21, 41)
         self.strength = np.random.randint(1, 11)
-        self.killRange = np.random.randint(15,31)
+        self.killRange = np.random.randint(11,21)
         self.genX = np.random.randint(18, 400)
         self.genY = np.random.randint(37, 400)
         self.curX = self.genX
@@ -161,7 +187,7 @@ class Predator(object):
         self.curX, self.curY = world.coords(self.tag)[0], world.coords(self.tag)[1]
 
         #if we have a target and the predator is still persisting
-        if self.target and self.curPersistence > 0:
+        if self.target and self.target in beings and self.curPersistence > 0:
             return self.navToTarget(self.target, world)
         #if we have a target and the target is still in range
         elif self.target and self.target in range(int(self.target.curX - self.visionRange), int(self.target.curX + self.visionRange)) and self.curY in range(int(self.target.curY - self.visionRange), int(self.target.curY + self.visionRange)):
@@ -194,55 +220,88 @@ class Predator(object):
         #update state to hunting so the direction doesn't get randomized next iteration
         self.state = 'hunting'
 
-        #print (self.curX, self.curY), (being.curX, being.curY)
+        #seek in each direction randomly
+        searches = [self.navEast, self.navWest, self.navNorth, self.navSouth]
+        i=0
+        while i < 24:
+            thisSearch = np.random.choice(searches)
+            thisSearch(being, world)
+            i += 1
+        
 
-        #if more east, move west
+    #if more east, move west
+    def navEast(self, being, world):
         if self.curX < (being.curX-self.killRange) and self.curX < (being.curX+self.killRange):
             self.direction = 3
             return
-        #if west, move east
-        elif self.curX > (being.curX-self.killRange) and self.curX > (being.curX+self.killRange):
+    #if west, move east
+    def navWest(self, being, world):
+        if self.curX > (being.curX-self.killRange) and self.curX > (being.curX+self.killRange):
             self.direction = 2
             return
-        #if north, move south
-        elif self.curY < (being.curY-self.killRange) and self.curY < (being.curY+self.killRange):
+    #if north, move south
+    def navSouth(self, being, world):
+        if self.curY < (being.curY-self.killRange) and self.curY < (being.curY+self.killRange):
             self.direction = 1
             return
-        #if south, move north
-        elif self.curY > (being.curY-self.killRange) and self.curY > (being.curY+self.killRange):
+    #if south, move north
+    def navNorth(self, being, world):
+        if self.curY > (being.curY-self.killRange) and self.curY > (being.curY+self.killRange):
             self.direction = 0
             return
 
-    def kill(self, world, prey, allBeings):
+
+    def kill(self, world, prey, deadPrey, allBeings):
         self.curX, self.curY = world.coords(self.tag)[0], world.coords(self.tag)[1]
         for p in prey:
             p.curX, p.curY = world.coords(p.tag)[0], world.coords(p.tag)[1]
             if p.curX in range(int(self.curX - self.killRange), int(self.curX + self.killRange)) and p.curY in range(int(self.curY - self.killRange), int(self.curY + self.killRange)):
                 try:
                     allBeings.pop(allBeings.index(p))
-                    prey.pop(prey.index(p))
+                    deadPrey.append(prey.pop(prey.index(p)))
                     world.delete(p.tag)
                     self.killCount += 1
                     self.target = None
+                    self.curLife += 5
                     print '%s just KILLED %s!!!! while persistence=%s/%s and state=%s' % (self.tag, p.tag, self.curPersistence, self.persistence, self.state)
                     self.curPersistence = self.persistence
                 except:
                     print 'kill exc?'
+    
+    def age(self, beingsObj):     
+        # every 30 seconds the lifespan decreases by 1
+        if ((datetime.strptime(time.strftime("%H:%M:%S"), "%H:%M:%S") - datetime.strptime(self.birthTime, "%H:%M:%S"))).seconds % 5 == 0:
+            self.curLife -= .2
+
+            #if no more life, die
+            if self.curLife <= 0:
+                beingsObj.beings.pop(beingsObj.beings.index(self))
+                beingsObj.deadPredators.append(beingsObj.predators.pop(beingsObj.predators.index(self)))
+                beingsObj.world.delete(self.tag)
+                
+    def showInfo(self, event):
+        self.bbox1.delete(1.0, END)
+        self.bbox1.insert("tag-%s curX-%s curY-%s\n clickX-%s clickY-%s" % (self.tag, self.curX, self.curY, event.x, event.y))
+        print "%s,%s" % (event.x, event.y)
+
 
 class Prey(object):
-    def __init__(self):
+    def __init__(self, bbox1):
         '''
         Prey Being : speed, stamina, lifespan, state, direction attributes.
                      hunt, reporduce methods.
 
         '''
         self.type = 'prey'
+        self.bbox1 = bbox1
         self.state = 'idle'
         self.generation = 1
         self.speed = np.random.randint(1, 11)
+        self.birthTime = time.strftime("%H:%M:%S")
         self.stamina = np.random.randint(1, 11)
-        self.lifespan = np.random.randint(100, 501)
+        self.lifespan = np.random.randint(50, 201)
         self.visionRange = np.random.randint(1, 11)
+        self.curLife = self.lifespan
         self.strength = np.random.randint(1, 11)
         self.state = {'state':'idle'}
         self.direction = np.random.randint(4)
@@ -253,5 +312,17 @@ class Prey(object):
         self.color = '#'+''.join([np.random.choice('0 1 2 3 4 5 6 7 8 9 A B C D E F'.split()) for x in range(6)])
 
         
-
+    def age(self, beingsObj):
+        if ((datetime.strptime(time.strftime("%H:%M:%S"), "%H:%M:%S") - datetime.strptime(self.birthTime, "%H:%M:%S"))).seconds % 5 == 0:
+            self.curLife -= .2
             
+            #if no more life, die
+            if self.curLife <= 0:
+                beingsObj.beings.pop(beingsObj.beings.index(self))
+                beingsObj.deadPrey.append(beingsObj.prey.pop(beingsObj.prey.index(self)))
+                beingsObj.world.delete(self.tag)
+    
+    def showInfo(self):
+        self.bbox1.delete(1.0, END)
+        self.bbox1.insert("tag-%s curX-%s curY-%s" % (self.tag, self.curX, self.curY))
+
