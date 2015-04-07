@@ -40,7 +40,7 @@ class Evolution(Frame):
         sbtn = Button(self, text="Stop")
         sbtn.grid(row=2, column=3, pady = 5)
 
-        bbox = Text(self, height = 20, width = 20)
+        bbox = Text(self, height=20, width=20)
         bbox.grid(row=3, column = 3, rowspan=2, pady=5)
 
         cbtn = Button(self, text="Close", command=self.parent.destroy)
@@ -52,7 +52,7 @@ class Evolution(Frame):
         wbtn = Button(self, text="Step")
         wbtn.grid(row=3, column=3, sticky=N)
         
-        abtn = Button(self, text="Start", command=Beings(world, 8, 50, sbtn, bbox).live)
+        abtn = Button(self, text="Start", command=Beings(world, 5, 100, sbtn, bbox).live)
         abtn.grid(row=1, column=3, pady=5)
 
     def close(self):
