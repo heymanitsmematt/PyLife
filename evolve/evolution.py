@@ -57,7 +57,7 @@ class Evolution(Frame):
         timelbl = Text(self, height=1, width=10)
         timelbl.grid(row=2, column=3, pady=5 )
         
-        abtn = Button(self, text="Start", command=Beings(world, 10, 100, sbtn, bbox, bbox1, timelbl).live)
+        abtn = Button(self, text="Start", command=Beings(world, 5, 100, sbtn, bbox, bbox1, timelbl).live)
         abtn.grid(row=1, column=3, pady=5, sticky=W)
 
     def close(self):
