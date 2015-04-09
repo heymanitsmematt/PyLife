@@ -19,8 +19,8 @@ class Beings:
         self.world = world
         self.world.state = {'state' : 'inactive'}
 
-        self.predators = [Predator(bbox1) for i in range(predCount)]
-        self.prey = [Prey(bbox1) for i in range(preyCount)]
+        self.predators = [Predator(world, bbox1) for i in range(predCount)]
+        self.prey = [Prey(world, bbox1) for i in range(preyCount)]
 
         self.deadPredators = list()
         self.deadPrey = list()
@@ -121,13 +121,13 @@ class Beings:
         elif directionMap[being.direction] == 'S':
             being.curY = self.world.coords(being.tag)[1]
             being.offset = being.speed 
-            if being.curY > self.world.winfo_height()-100:
+            if being.curY > self.world.winfo_height()-5:
                 being.offset = (-1 * (being.speed))/2 #being.genY - (self.world.winfo_height()-being.genY)
         #if E decrease X by speed coef and ensure not outside E world boundary
         elif directionMap[being.direction] == 'E':
             being.curX = self.world.coords(being.tag)[0]
             being.offset = being.speed
-            if being.curX > self.world.winfo_width()-100:
+            if being.curX > self.world.winfo_width()-5:
                 being.offset = (-1 * (being.speed) / 2)
         #if W increase X by speed coef and ensure not outside W world boundary
         elif directionMap[being.direction] == 'W':
@@ -160,7 +160,7 @@ class Beings:
     
 
 class Predator(object):
-    def __init__(self, bbox1):
+    def __init__(self,world, bbox1):
         '''
         Predator Being: speed, stamina, lifespan, state, direction attributes.
                         hunt, reproduce methods.
@@ -170,29 +170,33 @@ class Predator(object):
         self.bbox1 = bbox1
         self.generation = 1
         self.birthTime = time.strftime("%H:%M:%S")
-        self.speed = np.random.randint(1,6)
+        self.speed = np.random.randint(3,7)
         self.persistence = np.random.randint(21,51)
         self.curPersistence = self.persistence
         self.stamina = np.random.randint(1, 11)
-        self.lifespan = np.random.randint(20, 75)
+        self.lifespan = np.random.randint(75, 200)
         self.state = {'state':'idle'}
-        self.curLife = self.lifespan
+        self.curLife = self.lifespan/2
         self.foodEfficiency = np.random.randint(30,100)
         self.direction = np.random.randint(4)
-        self.visionRange = np.random.randint(10, 51)
+        self.visionRange = np.random.randint(50,101)
         self.strength = np.random.randint(1, 31)
-        self.killRange = np.random.randint(1,6)
-        self.genX = np.random.randint(18, 400)
-        self.genY = np.random.randint(37, 400)
+        self.killRange = np.random.randint(2,8)
+        self.genX = np.random.randint(18, 600)
+        self.genY = np.random.randint(37, 600)
         self.curX = self.genX
         self.curY = self.genY
         self.color = '#'+''.join([np.random.choice('0 1 2 3 4 5 6 7 8 9 A B C D E F'.split()) for x in range(6)])
         self.killCount = 0 
         self.target = None
-        self.litterSize = np.random.randint(3)
-        self.reproductiveAge = self.lifespan + np.random.randint(50, 151)
-        self.genVar = float("%02d" % (np.random.randint(-99, 99)*.01))
+        self.litterSize = np.random.randint(1,4)
+        self.reproductiveAge = self.lifespan - np.random.randint(1, 5)
+        self.speciesPopulationMax = np.random.randint(100,300)
+        self.genVar = np.random.randint(-99, 99)*.01
         self.timeAlive = 0
+
+    def newGenVar(self):
+        return  np.random.randint(-99, 99)*.01
 
     def refreshCoords(self, being, world):
         being.curX, being.curY = world.coords(being.tag[0]), world.coords(being.tag)[1]
@@ -265,7 +269,9 @@ class Predator(object):
                     world.delete(p.tag)
                     self.killCount += 1
                     self.target = None
-                    self.curLife += 10
+                    self.curLife  += 15
+                    if self.curLife > self.lifespan:
+                        self.curLife = self.lifespan
                     print '%s just KILLED %s!!!! while persistence=%s/%s and state=%s' % (self.tag, p.tag, self.curPersistence, self.persistence, self.state)
                     self.curPersistence = self.persistence
                 except:
@@ -283,25 +289,31 @@ class Predator(object):
                 beingsObj.world.delete(self.tag)
 
         self.timeAlive += 1
-        if self.curLife > self.reproductiveAge:
+        if self.curLife > self.reproductiveAge and  len([p for p in beingsObj.predators if p.color == self.color])< self.speciesPopulationMax:
+            if len([p for p in beingsObj.predators if p.color == self.color]) > 100:
+                pass #pdb.set_trace()
+            self.reproductiveAge += 1
             self.reproduce(beingsObj.world, beingsObj)
-        
+       
+        if self.curLife > self.reproductiveAge and self.timeAlive % 50 == 0:
+            self.reproductiveAge -= 1
+
     def reproduce(self, world, beingsObj):
         #instantiate new beings in a litter the size of the being
-        offspring = [Predator(beingsObj.bbox) for p in range(int(self.litterSize))]
+        offspring = [Predator(world, beingsObj.bbox) for p in range(int(self.litterSize))]
         
         #set attributes of offspring to parents, randomizing for genVar
 
         for kid in offspring:
             kid.generation = self.generation + 1
-            kid.speed = self.speed + self.genVar
+            kid.speed = self.speed + self.genVar 
             kid.persistence = self.persistence + self.genVar
             kid.lifespan = self.lifespan + self.genVar
-            kid.curLife = .5 * self.lifespan
+            kid.curLife = .3 * self.curLife
             kid.killRange = self.killRange + self.genVar
             kid.visionRange = self.visionRange + self.genVar
             kid.litterSize = self.litterSize + self.genVar
-            kid.genVar = self.genVar + self.genVar
+            kid.genVar = self.newGenVar()
             kid.color = self.color
             kid.tag = world.create_rectangle(self.curX-4, self.curY-4, self.curX-14, self.curY-14, fill=self.color)
             beingsObj.predators.append(kid)
@@ -318,7 +330,7 @@ class Predator(object):
 
 
 class Prey(object):
-    def __init__(self, bbox1):
+    def __init__(self, world, bbox1):
         '''
         Prey Being : speed, stamina, lifespan, state, direction attributes.
                      hunt, reporduce methods.
@@ -331,18 +343,18 @@ class Prey(object):
         self.speed = np.random.randint(3, 11)
         self.birthTime = time.strftime("%H:%M:%S")
         self.stamina = np.random.randint(1, 11)
-        self.lifespan = np.random.randint(15, 120)
+        self.lifespan = np.random.randint(35, 120)
         self.visionRange = np.random.randint(5, 31)
         self.curLife = self.lifespan
         self.strength = np.random.randint(1, 11)
         self.state = {'state':'idle'}
         self.direction = np.random.randint(4)
-        self.genX = np.random.randint(18, 400)
-        self.genY = np.random.randint(37, 400)
+        self.genX = np.random.randint(18, 500)
+        self.genY = np.random.randint(37, 500)
         self.curX = self.genX
         self.curY = self.genY
         self.color = '#'+''.join([np.random.choice('0 1 2 3 4 5 6 7 8 9 A B C D E F'.split()) for x in range(6)])
-        self.litterSize = np.random.randint(4)
+        self.litterSize = np.random.randint(1,6)
         self.genVar = float("%02d" % (np.random.randint(-99, 99)*.01))
         self.timeAlive = 0
         
@@ -357,12 +369,16 @@ class Prey(object):
                 beingsObj.world.delete(self.tag)
         
         self.timeAlive += 1
-        if self.timeAlive == 100:
+
+        if self.generation == 1 and self.timeAlive == 10:
+            self.reproduce(beingsObj.world, beingsObj)
+
+        if self.timeAlive == 100 or  self.timeAlive > 150 and self.timeAlive % 100 == 0:
             self.reproduce(beingsObj.world, beingsObj)
     
     def reproduce(self, world, beingsObj):
         #instantiate new beings in a litter the size of the being
-        offspring = [Prey(beingsObj.bbox) for p in range(int(self.litterSize))]
+        offspring = [Prey(world, beingsObj.bbox) for p in range(int(self.litterSize))]
         
         #set attributes of offspring to parents, randomizing for genVar
 

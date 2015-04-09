@@ -27,38 +27,37 @@ class Evolution(Frame):
         self.style.theme_use("default")
         self.pack(fill=BOTH, expand=1)
 
-        self.columnconfigure(1, weight=1)
-        self.columnconfigure(3, pad=7)
+        self.columnconfigure(2, weight=1)
+        self.columnconfigure(4, pad=7)
         self.rowconfigure(3, weight=1)
-        self.rowconfigure(5, pad=30)
 
         lbl = Label(self, text="PyLife")
         lbl.grid(sticky=W, pady=5, padx=25)
 
 
         world = Canvas(self, background="#7474DB")
-        world.grid(row=1, column=0, columnspan=2, rowspan=5, padx=5, sticky=E+W+N+S)
+        world.grid(row=1, column=0, columnspan=3, rowspan=8, padx=5, sticky=E+W+N+S)
         
         sbtn = Button(self, text="Stop")
-        sbtn.grid(row=1, column=3, pady = 5, sticky=E)
+        sbtn.grid(row=1, column=4, pady = 5, sticky=E)
 
-        bbox = Text(self, height=11, width=36)
-        bbox.grid(row=3, column = 3, sticky=E+W+N+S)
+        bbox = Text(self, height=20, width=36)
+        bbox.grid(row=3, column = 4, padx=5, sticky=E+W+N+S)
 
         bbox1 = Text(self, height=11, width=36)
-        bbox1.grid(row=4, column=3, sticky=E+W+N+S)
+        bbox1.grid(row=4, column=4, padx=5, sticky=E+W+N+S)
 
         cbtn = Button(self, text="Close", command=self.parent.destroy)
-        cbtn.grid(row=6, column=3, pady=5)
+        cbtn.grid(row=9, column=4, pady=5)
 
         hbtn = Button(self, text="Configure Universe")
-        hbtn.grid(row=6, column=0, padx=5)
+        hbtn.grid(row=9, column=0, padx=5)
 
         timelbl = Text(self, height=1, width=10)
-        timelbl.grid(row=2, column=3, pady=5 )
+        timelbl.grid(row=2, column=4, pady=5 )
         
-        abtn = Button(self, text="Start", command=Beings(world, 5, 100, sbtn, bbox, bbox1, timelbl).live)
-        abtn.grid(row=1, column=3, pady=5, sticky=W)
+        abtn = Button(self, text="Start", command=Beings(world, 4, 10, sbtn, bbox, bbox1, timelbl).live)
+        abtn.grid(row=1, column=4, pady=5, sticky=W)
 
     def close(self):
         self.parent.destroy
@@ -68,7 +67,7 @@ class Evolution(Frame):
 
 def main():
     root = Tk()
-    root.geometry("%dx%d+%d+%d" % (790, 550, ((root.winfo_screenwidth()/2)-790), ((root.winfo_screenheight()/2-550))))
+    root.geometry("%dx%d+%d+%d" % (990, 750, ((root.winfo_screenwidth()/2)-990), ((root.winfo_screenheight()/2-750))))
     ex = Evolution(root)
     root.mainloop()
     
