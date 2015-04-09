@@ -191,6 +191,8 @@ class Predator(object):
         self.target = None
         self.litterSize = np.random.randint(1,4)
         self.reproductiveAge = self.lifespan - np.random.randint(1, 5)
+        self.preyDensityLimit = np.random.randint(4)
+        self.reproduceFlag = True
         self.speciesPopulationMax = np.random.randint(100,300)
         self.genVar = np.random.randint(-99, 99)*.01
         self.timeAlive = 0
@@ -219,6 +221,10 @@ class Predator(object):
     
         #isolate targets if there are any
         targets = [p for p in prey if p.curX in xVR and p.curY in yVR]
+
+        if len(targets) >= self.preyDensityLimit:
+            self.reproduceFlag == False
+        else: self.reproduceFlag == True
         
         #jump out if there aren't any and wander around idle
         if len(targets) == 0:
@@ -289,13 +295,13 @@ class Predator(object):
                 beingsObj.world.delete(self.tag)
 
         self.timeAlive += 1
-        if self.curLife > self.reproductiveAge and  len([p for p in beingsObj.predators if p.color == self.color])< self.speciesPopulationMax:
+        if self.reproduceFlag == True and self.curLife > self.reproductiveAge and  len([p for p in beingsObj.predators if p.color == self.color])< self.speciesPopulationMax:
             if len([p for p in beingsObj.predators if p.color == self.color]) > 100:
                 pass #pdb.set_trace()
             self.reproductiveAge += 1
             self.reproduce(beingsObj.world, beingsObj)
        
-        if self.curLife > self.reproductiveAge and self.timeAlive % 50 == 0:
+        if self.reproduceFlag == True and self.curLife > self.reproductiveAge and self.timeAlive % 50 == 0:
             self.reproductiveAge -= 1
 
     def reproduce(self, world, beingsObj):
